@@ -7,6 +7,7 @@ FOV = 90  # degrees
 ScreenWidth = 2
 HowScale = 3  # how much wider the screen is shown compared to the actual screen width
 PlaneWidth = 1.4  # width of the plane at distance = 1
+WindowSizeInInches = 10  # window size in 
 
 # derived saetup
 focal_length = ScreenWidth / (2 * np.tan(np.deg2rad(FOV) / 2))
@@ -20,8 +21,8 @@ planeRotation = 0  # degrees
 def drawLine(p1, p2, color='green', linestyle='--', linewidth=1):
     ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=color, linestyle=linestyle, linewidth=linewidth)
 
-def drawPoint(p, color='green'):
-    ax.plot(p[0], p[1], marker='o', markersize=5, markerfacecolor='none', markeredgecolor=color, markeredgewidth=2)
+def drawPoint(p, color='green', markersize=5, markeredgewidth=2):
+    ax.plot(p[0], p[1], marker='o', markersize=markersize, markerfacecolor='none', markeredgecolor=color, markeredgewidth=markeredgewidth)
 
 
 # math
@@ -39,10 +40,30 @@ def rotatePoint(point, R):
 def createProjectionMatrix2x2():
     return np.array([[focal_length, 0], [0, 1]])
 
+def ray_segment_intersection(ray_dir, seg_start, seg_end, eps=1e-9):
+    p = np.array([0,0], dtype=float)
+    r = np.array(ray_dir, dtype=float)
+    q = np.array(seg_start, dtype=float)
+    s = np.array(seg_end, dtype=float) - q
+
+    rxs = r[0]*s[1] - r[1]*s[0]
+    if abs(rxs) < eps:
+        return None  # Parallel or collinear
+
+    q_p = q - p
+    t = (q_p[0]*s[1] - q_p[1]*s[0]) / rxs
+    u = (q_p[0]*r[1] - q_p[1]*r[0]) / rxs
+
+    if t >= 0 and 0 <= u <= 1:
+        intersection = p + t * r
+        return intersection
+    return None    
+
+
 # Create a figure and axis
 # Remove 'q' from the quit keymap
 plt.rcParams['keymap.quit'] = []  # or set to a different key, e.g., ['ctrl+q']
-fig = plt.figure(figsize=(10, 10/HowScale), dpi=100)  # 10×6 inches at 100 DPI → 1000×600 pixels
+fig = plt.figure(figsize=(WindowSizeInInches, WindowSizeInInches/HowScale), dpi=200)  # 10×6 inches at 100 DPI → 1000×600 pixels
 ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])  # left, bottom, width, height (range 0 to 1)
 
 # Initial line from (0,0) to (0,0)
@@ -72,21 +93,41 @@ def drawCurrent():
     #projection of the plane on the screen
     P = createProjectionMatrix2x2()
     # project the point and normalize by y
-    p0 = P @ plane[0]
-    p0[0] = p0[0] / (1+p0[1])
-    p1 = P @ plane[1]
-    p1[0] = p1[0] / (1+p1[1])
+    p0 = P @ [plane[0][0], plane[0][1]+focal_length]
+    p0[0] = p0[0] / (p0[1])
+    p1 = P @ [plane[1][0], plane[1][1]+focal_length]
+    p1[0] = p1[0] / (p1[1])
     drawLine([p0[0],0], [p1[0],0], color='darkred', linestyle='-', linewidth=2)
 
     # draw edges of the projection
     drawLine([p0[0],0], [0,-focal_length], color='darkred', linestyle='--', linewidth=1)
     drawLine([p1[0],0], [0,-focal_length], color='darkred', linestyle='--', linewidth=1)
 
+    #ray to the mouse
+    rayMouse = [x,focal_length]
+    drawLine([0,-focal_length], [rayMouse[0],rayMouse[1]-focal_length], color='green', linestyle='--', linewidth=1)
+
+    #intersection
+    intersection = ray_segment_intersection(rayMouse, [plane[0][0], plane[0][1] + focal_length], [plane[1][0], plane[1][1]+ focal_length])
+    if intersection is not None:
+        planeIntersection = [intersection[0], intersection[1]-focal_length]
+        drawPoint(planeIntersection, markersize=5, markeredgewidth=1)
+
+    #mouse in view space
+    Pinv = np.linalg.inv(P)
+    mouseViewSpace = Pinv @ np.array([x,0])
+#    mouseViewSpace[0] = mouseViewSpace[0] / (1+mouseViewSpace[1])
+    Rinv = np.linalg.inv(R)
+    mouseInPlaneSpace = Rinv @ mouseViewSpace
+    mouseInPlaneSpace[1] = -mouseInPlaneSpace[1]  # flip y to match the drawing coordinates
+#    drawPoint(mouseInPlaneSpace, markersize=5)
+
+
     # mouse
 #    drawLine([0,-focal_length], [x,y])
 #    drawPoint([x,y])
     # mouse projection on the screen
-    drawPoint([x,0])
+    drawPoint([rayMouse[0],rayMouse[1]-focal_length], markersize=3, markeredgewidth=1)
 
     fig.canvas.draw_idle()         # Redraw efficiently
 
