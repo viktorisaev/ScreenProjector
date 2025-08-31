@@ -113,6 +113,17 @@ def drawCurrent():
         planeIntersection = [intersection[0], intersection[1]-focal_length]
         drawPoint(planeIntersection, markersize=5, markeredgewidth=1)
 
+        #mouse in plane space
+        Rinv = np.linalg.inv(R)
+        mouseInPlaneSpace = Rinv @ planeIntersection
+        mouseInPlaneSpace[1] = -mouseInPlaneSpace[1]
+
+        #convert mouse position in plane back to view space
+        mouseInPlaneSpaceInViewSpace = R @ mouseInPlaneSpace
+        drawPoint(mouseInPlaneSpaceInViewSpace, color='red', markersize=3, markeredgewidth=3)
+        ax.text(mouseInPlaneSpaceInViewSpace[0], mouseInPlaneSpaceInViewSpace[1], "  {:.2f}".format(mouseInPlaneSpace[0]/HalfPlaneWidth), color='black', fontsize=8, verticalalignment='bottom')
+ 
+
     #mouse in view space
     Pinv = np.linalg.inv(P)
     mouseViewSpace = Pinv @ np.array([x,0])
