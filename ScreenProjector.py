@@ -8,6 +8,7 @@ ScreenWidth = 2
 HowScale = 3  # how much wider the screen is shown compared to the actual screen width
 PlaneWidth = 1.4  # width of the plane at distance = 1
 WindowSizeInInches = 10  # window size in 
+RotationStrength = 4.5  # how strong the plane rotation is affected by mouse x position
 
 # derived saetup
 HalfScreenWidth = ScreenWidth / 2
@@ -56,7 +57,12 @@ def ray_segment_intersection(ray_dir, seg_start, seg_end, eps=1e-9):
     if t >= 0 and 0 <= u <= 1:
         intersection = p + t * r
         return intersection
-    return None    
+    return None
+
+def angle_between_vectors(v1, v2):
+    angle_rad = np.arctan2(v1[0]*v2[1] - v1[1]*v2[0], v1[0]*v2[0] + v1[1]*v2[1])
+    angle_deg = np.degrees(angle_rad)
+    return angle_deg
 
 
 # Create a figure and axis
@@ -74,8 +80,13 @@ mouse = [0,0]
 def drawCurrent():
     focal_length = ScreenWidth / (2 * np.tan(np.deg2rad(FOV) / 2))
 
-    x = mouse[0]
+#limit the mouse position between -1 and 1
+    x = np.clip(mouse[0], -1, +1)
     y = mouse[1]
+
+    #control plane rotation with mouse x position
+    global planeRotation
+    planeRotation = angle_between_vectors([0,1], [x,RotationStrength])  # angle between the two vectors
 
     ax.clear()
     ax.set_xlim(-HalfScreenWidth*HowScale, HalfScreenWidth*HowScale)
@@ -89,8 +100,8 @@ def drawCurrent():
     R = createRotationMatrix(planeRotation)
     plane = [rotatePoint(planeOrig[0], R), rotatePoint(planeOrig[1], R)]  # rotated plane coordinates
     drawLine(plane[0], plane[1], color='red', linestyle='-')
-    drawPoint(plane[0], color='red', markersize=3)
-    drawPoint(plane[1], color='red', markersize=3)
+    drawPoint(plane[0], color='red', markersize=2)
+    drawPoint(plane[1], color='red', markersize=2)
 
     #projection of the plane on the screen
     P = createProjectionMatrix2x2(focal_length)
