@@ -10,7 +10,6 @@ PlaneWidth = 1.4  # width of the plane at distance = 1
 WindowSizeInInches = 10  # window size in 
 
 # derived saetup
-focal_length = ScreenWidth / (2 * np.tan(np.deg2rad(FOV) / 2))
 HalfScreenWidth = ScreenWidth / 2
 HalfPlaneWidth = PlaneWidth / 2
 
@@ -37,7 +36,7 @@ def rotatePoint(point, R):
     return R @ point
 
 
-def createProjectionMatrix2x2():
+def createProjectionMatrix2x2(focal_length):
     return np.array([[focal_length, 0], [0, 1]])
 
 def ray_segment_intersection(ray_dir, seg_start, seg_end, eps=1e-9):
@@ -63,6 +62,7 @@ def ray_segment_intersection(ray_dir, seg_start, seg_end, eps=1e-9):
 # Create a figure and axis
 # Remove 'q' from the quit keymap
 plt.rcParams['keymap.quit'] = []  # or set to a different key, e.g., ['ctrl+q']
+plt.rcParams['keymap.fullscreen'] = []  # or set to a different key, e.g., ['ctrl+q']
 fig = plt.figure(figsize=(WindowSizeInInches, WindowSizeInInches/HowScale), dpi=200)  # 10×6 inches at 100 DPI → 1000×600 pixels
 ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])  # left, bottom, width, height (range 0 to 1)
 
@@ -72,14 +72,16 @@ ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])  # left, bottom, width, height (range 0 
 mouse = [0,0]
 
 def drawCurrent():
+    focal_length = ScreenWidth / (2 * np.tan(np.deg2rad(FOV) / 2))
+
     x = mouse[0]
     y = mouse[1]
 
     ax.clear()
     ax.set_xlim(-HalfScreenWidth*HowScale, HalfScreenWidth*HowScale)
-    ax.set_ylim(-focal_length, HalfPlaneWidth)        
+    ax.set_ylim(-focal_length, HalfPlaneWidth+focal_length)
     plt.grid(True)
-    plt.title("focal_length = {:.2f}".format(focal_length))
+    plt.title("FOV={:.0f}, focal length = {:.2f}".format(FOV, focal_length))
     # screen
     drawLine([-HalfScreenWidth,0], [HalfScreenWidth,0], color='blue', linestyle='-')
     #plane
@@ -87,11 +89,11 @@ def drawCurrent():
     R = createRotationMatrix(planeRotation)
     plane = [rotatePoint(planeOrig[0], R), rotatePoint(planeOrig[1], R)]  # rotated plane coordinates
     drawLine(plane[0], plane[1], color='red', linestyle='-')
-    drawPoint(plane[0], color='red')
-    drawPoint(plane[1], color='red')
+    drawPoint(plane[0], color='red', markersize=3)
+    drawPoint(plane[1], color='red', markersize=3)
 
     #projection of the plane on the screen
-    P = createProjectionMatrix2x2()
+    P = createProjectionMatrix2x2(focal_length)
     # project the point and normalize by y
     p0 = P @ [plane[0][0], plane[0][1]+focal_length]
     p0[0] = p0[0] / (p0[1])
@@ -151,13 +153,19 @@ def on_mouse_move(event):
         drawCurrent()
 
 def on_key(event):
-    global planeRotation
+    global planeRotation, FOV
     if event.key == 'e':
         if planeRotation > -30:
             planeRotation -= 1
     elif event.key == 'q':
         if planeRotation < 30:
             planeRotation += 1
+    elif event.key == 'f':
+        if FOV > 50:
+            FOV -= 1
+    elif event.key == 'F':
+        if FOV <130:
+            FOV += 1
     drawCurrent()
 
 # Connect the event
