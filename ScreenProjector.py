@@ -17,7 +17,6 @@ HalfPlaneWidth = PlaneWidth / 2
 planeRotation = 0  # degrees
 
 # drawing
-
 def drawLine(p1, p2, color='green', linestyle='--', linewidth=1):
     ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=color, linestyle=linestyle, linewidth=linewidth)
 
@@ -66,7 +65,6 @@ def angle_between_vectors(v1, v2):
 
 
 # Create a figure and axis
-# Remove 'q' from the quit keymap
 plt.rcParams['keymap.quit'] = []  # or set to a different key, e.g., ['ctrl+q']
 plt.rcParams['keymap.fullscreen'] = []  # or set to a different key, e.g., ['ctrl+q']
 fig = plt.figure(figsize=(WindowSizeInInches, WindowSizeInInches/HowScale), dpi=200)  # 10×6 inches at 100 DPI → 1000×600 pixels
@@ -98,17 +96,17 @@ def drawCurrent():
     #plane
     planeOrig = [[-PlaneWidth/2, 0], [PlaneWidth/2, 0]] ## coordinates of the plane in local plane space
     R = createRotationMatrix(planeRotation)
-    plane = [rotatePoint(planeOrig[0], R), rotatePoint(planeOrig[1], R)]  # rotated plane coordinates
-    drawLine(plane[0], plane[1], color='red', linestyle='-')
-    drawPoint(plane[0], color='red', markersize=2)
-    drawPoint(plane[1], color='red', markersize=2)
+    planeRotated = [rotatePoint(planeOrig[0], R), rotatePoint(planeOrig[1], R)]  # rotated plane coordinates
+    drawLine(planeRotated[0], planeRotated[1], color='red', linestyle='-')
+    drawPoint(planeRotated[0], color='red', markersize=2)
+    drawPoint(planeRotated[1], color='red', markersize=2)
 
     #projection of the plane on the screen
     P = createProjectionMatrix2x2(focal_length)
     # project the point and normalize by y
-    p0 = P @ [plane[0][0], plane[0][1]+focal_length]
+    p0 = P @ [planeRotated[0][0], planeRotated[0][1]+focal_length]
     p0[0] = p0[0] / (p0[1])
-    p1 = P @ [plane[1][0], plane[1][1]+focal_length]
+    p1 = P @ [planeRotated[1][0], planeRotated[1][1]+focal_length]
     p1[0] = p1[0] / (p1[1])
     drawLine([p0[0],0], [p1[0],0], color='darkred', linestyle='-', linewidth=2)
 
@@ -121,10 +119,10 @@ def drawCurrent():
     drawLine([0,-focal_length], [rayMouse[0],rayMouse[1]-focal_length], color='green', linestyle='--', linewidth=1)
 
     #intersection
-    intersection = ray_segment_intersection(rayMouse, [plane[0][0], plane[0][1] + focal_length], [plane[1][0], plane[1][1]+ focal_length])
+    intersection = ray_segment_intersection(rayMouse, [planeRotated[0][0], planeRotated[0][1] + focal_length], [planeRotated[1][0], planeRotated[1][1]+ focal_length])
     if intersection is not None:
         planeIntersection = [intersection[0], intersection[1]-focal_length]
-        drawPoint(planeIntersection, markersize=5, markeredgewidth=1)
+        drawPoint(planeIntersection, markersize=6, markeredgewidth=1)   # actual intersection in world space, for reference. Should match the mouse in plane space (big red dot)
 
         #mouse in plane space
         Rinv = np.linalg.inv(R)
