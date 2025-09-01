@@ -65,6 +65,24 @@ def project_points(points, P):
         projected.append(p_projected[:2])
     return projected
 
+def intersection_ray_and_plane(ray_direction, plane_normal, focal_length):
+    ray_origin = np.array([0,0, 0], dtype=float)
+    ray_direction = np.array(ray_direction, dtype=float)
+    plane_point = np.array([0,0,focal_length], dtype=float)
+    plane_normal = np.array(plane_normal, dtype=float)
+
+    denom = np.dot(plane_normal, ray_direction)
+    if abs(denom) < 1e-9:
+        return None  # Parallel or no intersection
+
+    d = np.dot(plane_normal, plane_point - ray_origin) / denom
+    if d < 0:
+        return None  # Intersection is behind the ray origin
+
+    intersection = ray_origin + d * ray_direction
+    return intersection
+
+
 
 def drawCurrent():
     focal_length = ScreenWidth / (2 * np.tan(np.deg2rad(FOV) / 2))
@@ -80,11 +98,18 @@ def drawCurrent():
 #    plt.title("FOV={:.0f}, focal length = {:.2f}".format(FOV, focal_length))
 
     # rotate
-    planeOrig = [[-HalfPlane[0], -HalfPlane[1], focal_length], [-HalfPlane[0], HalfPlane[1], focal_length], [HalfPlane[0], -HalfPlane[1], focal_length], [HalfPlane[0], HalfPlane[1], focal_length]] ## coordinates of the plane in local plane space
+    planeOrig = [[-HalfPlane[0], -HalfPlane[1], 0], [-HalfPlane[0], HalfPlane[1], 0], [HalfPlane[0], -HalfPlane[1], 0], [HalfPlane[0], HalfPlane[1], 0]] ## coordinates of the plane in local plane space
     mouseRay = np.array([-x, -y, RotationStrength])
     planeNormal = [0,0,1]
     R = rotation_matrix_from_vectors(mouseRay, planeNormal)
+#    R = rotation_matrix_from_vectors([0.5,0,1], planeNormal)
     planeRotated = [R @ np.array(planeOrig[0]), R @ np.array(planeOrig[1]), R @ np.array(planeOrig[2]), R @ np.array(planeOrig[3])]  # rotated plane coordinates
+#    planeRotated = planeOrig
+    planeNormalRotated = R @ np.array([0,0,-1])
+#    planeNormalRotated = [0,0,-1]
+    # translate plane to focal length
+    for i in range(len(planeRotated)):
+        planeRotated[i][2] += focal_length
 
     # projection
     P = create_projection_matrix(focal_length)
@@ -96,18 +121,31 @@ def drawCurrent():
     #mouse position in the quadrangle
     mousePlaneX = np.clip(x, -HalfPlane[0], HalfPlane[0])
     mousePlaneY = np.clip(y, -HalfPlane[1], HalfPlane[1]) # limit mouse position to be inside the plane
-    horMouse = [[-HalfPlane[0], mousePlaneY, focal_length], [HalfPlane[0], mousePlaneY, focal_length]]
-    vertMouse = [[mousePlaneX, -HalfPlane[1], focal_length], [mousePlaneX, HalfPlane[1], focal_length]]
+    horMouse = [[-HalfPlane[0], mousePlaneY, 0], [HalfPlane[0], mousePlaneY, 0]]
+    vertMouse = [[mousePlaneX, -HalfPlane[1], 0], [mousePlaneX, HalfPlane[1], 0]]
     #draw mouse cross
     horMouseRotated = [R @ np.array(horMouse[0]), R @ np.array(horMouse[1])]
     vertMouseRotated = [R @ np.array(vertMouse[0]), R @ np.array(vertMouse[1])]
+
+    for i in range(len(horMouseRotated)):
+        horMouseRotated[i][2] += focal_length
+    for i in range(len(vertMouseRotated)):
+        vertMouseRotated[i][2] += focal_length
+    
     horMouseProjected = project_points(horMouseRotated, P)
     vertMouseProjected = project_points(vertMouseRotated, P)
     drawLine(horMouseProjected[0], horMouseProjected[1], color='green', linestyle='-', linewidth=1)
     drawLine(vertMouseProjected[0], vertMouseProjected[1], color='green', linestyle='-', linewidth=1)
 
+    #calculate mouse ray
+    rayMouse = np.array([x, y, focal_length])
+    intersection = intersection_ray_and_plane(rayMouse, planeNormalRotated, focal_length)
+    if intersection is not None:
+        drawPoint(intersection, color='orange', markersize=6)
+    
+
     # draw mouse position in screen space. SHould later match the position in the plane space
-    drawPoint([x,y], markersize=3)
+#    drawPoint([x,y], markersize=3)
 
     fig.canvas.draw_idle()         # Redraw efficiently
 
