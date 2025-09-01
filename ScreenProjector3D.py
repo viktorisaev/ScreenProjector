@@ -90,8 +90,23 @@ def drawCurrent():
     P = create_projection_matrix(focal_length)
     planeRotatedProjected = project_points(planeRotated, P)
 
+    #draw the quadrangle
     drawQuadrangle(planeRotatedProjected)
 
+    #mouse position in the quadrangle
+    mousePlaneX = np.clip(x, -HalfPlane[0], HalfPlane[0])
+    mousePlaneY = np.clip(y, -HalfPlane[1], HalfPlane[1]) # limit mouse position to be inside the plane
+    horMouse = [[-HalfPlane[0], mousePlaneY, focal_length], [HalfPlane[0], mousePlaneY, focal_length]]
+    vertMouse = [[mousePlaneX, -HalfPlane[1], focal_length], [mousePlaneX, HalfPlane[1], focal_length]]
+    #draw mouse cross
+    horMouseRotated = [R @ np.array(horMouse[0]), R @ np.array(horMouse[1])]
+    vertMouseRotated = [R @ np.array(vertMouse[0]), R @ np.array(vertMouse[1])]
+    horMouseProjected = project_points(horMouseRotated, P)
+    vertMouseProjected = project_points(vertMouseRotated, P)
+    drawLine(horMouseProjected[0], horMouseProjected[1], color='green', linestyle='-', linewidth=1)
+    drawLine(vertMouseProjected[0], vertMouseProjected[1], color='green', linestyle='-', linewidth=1)
+
+    # draw mouse position in screen space. SHould later match the position in the plane space
     drawPoint([x,y], markersize=3)
 
     fig.canvas.draw_idle()         # Redraw efficiently
