@@ -8,7 +8,7 @@ ScreenWidth = 2
 HowScale = 1  # how much wider the screen is shown compared to the actual screen width
 Plane = [1.6, 0.9]  # width of the plane at distance = 1
 WindowSizeInInches = 10  # window size in 
-RotationStrength = 4.5  # how strong the plane rotation is affected by mouse x position
+RotationStrength = 3.3  # how strong the plane rotation is affected by mouse x position
 
 # derived saetup
 HalfScreen = [ScreenWidth / 2, ScreenWidth / 2]
@@ -22,8 +22,6 @@ def drawLine(p1, p2, color='green', linestyle='--', linewidth=1):
 def drawPoint(p, color='green', markersize=5, markeredgewidth=2):
     ax.plot(p[0], p[1], marker='o', markersize=markersize, markerfacecolor='none', markeredgecolor=color, markeredgewidth=markeredgewidth)
 
-
-
 def drawQuadrangle(pp):
     color = 'red'
     linewidth = 2
@@ -32,6 +30,41 @@ def drawQuadrangle(pp):
     drawLine(pp[0], pp[2], color=color, linewidth=linewidth, linestyle=linestyle)
     drawLine(pp[1], pp[3], color=color, linewidth=linewidth, linestyle=linestyle)
     drawLine(pp[2], pp[3], color=color, linewidth=linewidth, linestyle=linestyle)
+
+
+
+#math
+
+def rotation_matrix_from_vectors(a, b):
+    a = a / np.linalg.norm(a)
+    b = b / np.linalg.norm(b)
+    axis = np.cross(a, b)
+    s = np.linalg.norm(axis)
+    angle = np.arccos(np.clip(np.dot(a, b), -1.0, 1.0))
+    if s == 0:
+        # Parallel vectors: either identity or 180° rotation
+        return np.eye(3) if angle > 0 else -np.eye(3)
+    K = np.array([[0, -axis[2], axis[1]],
+                  [axis[2], 0, -axis[0]],
+                  [-axis[1], axis[0], 0]])
+    R = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * (K @ K)
+    return R
+
+def create_projection_matrix(focal_length):
+    #define a projection matrix in 3D
+    P = np.array([[focal_length,    0,              0],
+                  [0,               focal_length,   0],
+                  [0,               0,              1]])
+    return P
+
+def project_points(points, P):
+    projected = []
+    for p in points:
+        p_projected = P @ p
+        p_projected /= p_projected[2]  # Normalize by the third coordinate
+        projected.append(p_projected[:2])
+    return projected
+
 
 def drawCurrent():
     focal_length = ScreenWidth / (2 * np.tan(np.deg2rad(FOV) / 2))
@@ -46,9 +79,18 @@ def drawCurrent():
     plt.grid(True)
 #    plt.title("FOV={:.0f}, focal length = {:.2f}".format(FOV, focal_length))
 
-    planeOrig = [[-HalfPlane[0], -HalfPlane[1]], [-HalfPlane[0], HalfPlane[1]], [HalfPlane[0], -HalfPlane[1]], [HalfPlane[0], HalfPlane[1]]] ## coordinates of the plane in local plane space
+    # rotate
+    planeOrig = [[-HalfPlane[0], -HalfPlane[1], focal_length], [-HalfPlane[0], HalfPlane[1], focal_length], [HalfPlane[0], -HalfPlane[1], focal_length], [HalfPlane[0], HalfPlane[1], focal_length]] ## coordinates of the plane in local plane space
+    mouseRay = np.array([-x, -y, RotationStrength])
+    planeNormal = [0,0,1]
+    R = rotation_matrix_from_vectors(mouseRay, planeNormal)
+    planeRotated = [R @ np.array(planeOrig[0]), R @ np.array(planeOrig[1]), R @ np.array(planeOrig[2]), R @ np.array(planeOrig[3])]  # rotated plane coordinates
 
-    drawQuadrangle(planeOrig)
+    # projection
+    P = create_projection_matrix(focal_length)
+    planeRotatedProjected = project_points(planeRotated, P)
+
+    drawQuadrangle(planeRotatedProjected)
 
     drawPoint([x,y], markersize=3)
 
@@ -76,7 +118,7 @@ mouse = [0,0]
 # Create a figure and axis
 plt.rcParams['keymap.quit'] = []  # or set to a different key, e.g., ['ctrl+q']
 plt.rcParams['keymap.fullscreen'] = []  # or set to a different key, e.g., ['ctrl+q']
-fig = plt.figure(figsize=(WindowSizeInInches, WindowSizeInInches/HowScale), dpi=100)  # 10×6 inches at 100 DPI → 1000×600 pixels
+fig = plt.figure(figsize=(WindowSizeInInches, WindowSizeInInches/HowScale), dpi=120)  # 10×6 inches at 100 DPI → 1000×600 pixels
 ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])  # left, bottom, width, height (range 0 to 1)
 
 # Connect the event
